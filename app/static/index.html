@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prove Identity Verification</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #333;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-right: 10px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        .step {
+            display: none;
+            margin-top: 20px;
+        }
+        .step.active {
+            display: block;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Identity Verification</h1>
+        
+        <!-- Step 1: Provide phone number and SSN -->
+        <div id="step1" class="step active">
+            <div class="form-group">
+                <label for="phone">Phone Number:</label>
+                <input type="tel" id="phone" value="2001004009" required>
+            </div>
+            <div class="form-group">
+                <label for="ssn">Last 4 SSN Digits:</label>
+                <input type="text" id="ssn" value="2770" required>
+            </div>
+            
+            <button onclick="verifyIdentity()">Start Verification</button>
+        </div>
+
+        <!-- Step 2: Authentication simulation -->
+        <div id="step2" class="step">
+            <h2>Check your phone</h2>
+            <p>We sent a text message to your mobile phone.
+            <br>Click the link in the message to continue your registration.</p>
+            </p>
+        </div>
+
+        <!-- Step 3: Provide PII info -->
+        <div id="step3" class="step">
+            <h2>Provide Your Personal Info</h2>
+            <div class="form-group" style="display: flex; justify-content: space-between;">
+                <div>
+                    <label for="firstName">First Name:</label>
+                    <input type="text" id="firstName" value="Benny" required>
+                </div>
+                <div>
+                    <label for="lastName">Last Name:</label>
+                    <input type="text" id="lastName" value="Harper" required>
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="emailAddress">Email Address:</label>
+                <input type="text" id="emailAddress" value="bharperd@superstars.com" required>
+            </div>
+            <div class="form-group">
+                <label for="address">Address:</label>
+                <input type="text" id="address" value="27 Financial Place" required>
+            </div>
+            <div class="form-group" style="display: flex; justify-content: space-between;">
+                <div>
+                    <label for="city">City:</label>
+                    <input type="text" id="city" value="Bakersfield" required>
+                </div>
+                <div>
+                    <label for="postalCode">Postal Code:</label>
+                    <input type="text" id="postalCode" value="93301-2425" required>
+                </div>
+            </div>
+            <div class="form-group" style="display: flex; justify-content: space-between;">
+                <div>
+                    <label for="dob">Date of Birth:</label>
+                    <input type="date" id="dob" value="1994-09-02" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="ssn">SSN:</label>
+                    <input type="text" id="fullssn" maxlength="4" value="565252770" required>
+                </div>
+            </div>
+            <button onclick="submitPersonalInfo()">Submit</button>
+        </div>
+
+        <!-- Status Messages -->
+        <div id="statusContainer"></div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@prove-identity/prove-auth@2.10.1/build/bundle/release/prove-auth.js"></script>
+
+    <script>
+        // Show status messages
+        function showStatus(message, type = 'info') {
+            const container = document.getElementById('statusContainer');
+            container.innerHTML = `<div class="status ${type}">${message}</div>`;
+        }
+
+        // Show steps
+        function showStep(stepNumber) {
+            document.querySelectorAll('.step').forEach(step => {
+                step.classList.remove('active');
+            });
+            document.getElementById(`step${stepNumber}`).classList.add('active');
+        }
+
+        // Check if the customer is on a mobile or desktop browser
+        function isMobileWeb() {
+            const authCheck = new proveAuth.AuthenticatorBuilder().build();
+
+            return authCheck.isMobileWeb()
+        }
+
+        // Start the verification process to retrieve the auth token
+        async function startVerification() {
+            // Extract phone number and SSN from the input fields
+            const phoneNumber = document.getElementById("phone").value.trim();
+            const ssn = document.getElementById("ssn").value.trim();
+
+            // Get the flow type based on the browser
+            const flowType = isMobileWeb() ? "mobile" : "desktop";
+
+            try {
+                const response = await fetch("http://localhost:5000/api/start", {
+                    method: "POST",
+                    headers: {
+                        Accept: "application/json",
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                        phone_number: phoneNumber,
+                        flow_type: flowType,
+                        ssn: ssn,
+                    }),
+                });
+
+                const rsp = await response.json();
+
+                // Save the correlation ID to local storage
+                sessionStorage.setItem("correlationId", rsp.correlation_id);
+
+                return rsp.auth_token;   
+            } catch (error) {
+                console.log(error);
+                showStatus("An error occurred while starting the verification process.", "error");
+                return;
+            }
+        }
+
+        // Set up the authenticator
+        async function authenticate(authToken) {
+            try {
+                let builder = new proveAuth.AuthenticatorBuilder();
+                
+                if (isMobileWeb()) {
+                    // Set up Mobile Auth and OTP.
+                    // To be implemented: otpStart and otpFinish functions.
+                    builder = builder
+                        .withAuthFinishStep((input) => verify(input.authId))
+                        .withOtpFallback(otpStart, otpFinish);
+                } else {
+                    // Set up Instant Link.
+                    builder = builder
+                        .withAuthFinishStep((input) => {
+                            console.log('Auth finish step called with input:', input);
+                            return verify(input.authId);
+                        })
+                        .withInstantLinkFallback(instantLink)
+                        .withRole("secondary");
+                }
+
+                const authenticator = builder.build();
+
+                showStatus("Simulating authentication...", "info");
+
+                // Show the second step
+                showStep(2);
+
+                // Authenticate with the authToken.
+                await authenticator.authenticate(authToken);  
+
+                showStatus("")
+            } catch (error) {
+                console.error("Authentication error:", error);
+                showStatus("Authentication failed. Please try again.", "error");
+                throw error;
+            }
+        }
+
+        // Validate mobile phone number provided earlier
+        async function verify() {
+            try {
+                const response = await fetch("http://localhost:5000/api/validate", {
+                    method: "POST",
+                    headers: {
+                        Accept: "application/json",
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                        correlation_id: sessionStorage.getItem("correlationId"),
+                    }),
+                });
+
+                const results = await response.json();
+
+                if (results.success === false) {
+                    showStatus("Phone number validation failed: " + results.error, "error");
+                    return;
+                }
+
+                return null;
+            } catch (error) {
+                console.error("Verification error:", error);
+                showStatus("Verification failed: " + error.message, "error");
+                throw error;
+            }
+        }
+
+        function instantLink(phoneNumberNeeded, phoneValidationError) {
+            return new Promise((resolve, reject) => {
+                if (phoneNumberNeeded) {
+                    var val = prompt("Enter phone number:");
+                    let input = {
+                        phoneNumber: val,
+                    };
+                    resolve(input);
+                } else {
+                    resolve(null);
+                }
+            });
+        }
+
+        async function submitPersonalInfo() {
+            // Extract personal information from the input fields
+            const firstName = document.getElementById("firstName").value.trim();
+            const lastName = document.getElementById("lastName").value.trim();
+            const emailAddress = document.getElementById("emailAddress").value.trim();
+            const address = document.getElementById("address").value.trim();
+            const city = document.getElementById("city").value.trim();
+            const postalCode = document.getElementById("postalCode").value.trim();
+            const dob = document.getElementById("dob").value.slice(0, 7); // YYYY-MM format
+            const ssn = document.getElementById("fullssn").value.trim();
+
+            try {
+                const response = await fetch("http://localhost:5000/api/complete", {
+                    method: "POST",
+                    headers: {
+                        Accept: "application/json",
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                        individual: {
+                            first_name: firstName,
+                            last_name: lastName,
+                            email_addresses: [emailAddress],
+                            addresses: [
+                                {
+                                    address: address,
+                                    city: city,
+                                    postal_code: postalCode,
+                                }
+                            ],
+                            dob: dob,
+                            ssn: ssn,
+                        },
+                        correlation_id: sessionStorage.getItem("correlationId"),
+                    }),
+                });
+
+                if (response.ok) {
+                    showStatus("Personal information submitted successfully!", "success");
+                } else {
+                    showStatus("Failed to submit personal information: " + result.error, "error");
+                }
+            } catch (error) {
+                console.error("Submission error:", error);
+                showStatus("An error occurred while submitting personal information.", "error");
+            }
+        }
+
+        async function verifyIdentity(){
+            try {
+                // Step 1: Start verification and get auth token
+                const authToken = await startVerification();
+                
+                // Step 2: Authenticate with the token
+                await authenticate(authToken);
+                
+                // Step 3: Show the personal info step
+                showStep(3);
+
+            } catch (error) {
+                console.error("Identity verification failed:", error);
+                showStatus("Identity verification process failed. Please try again.", "error");
+            }
+        }
+    </script>
+</body>
+</html>
